@@ -1,0 +1,150 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro" name="$(arg name)">
+  <!-- robot name parameter -->
+  <xacro:arg name="name" default="ur"/>
+
+  <!-- includes -->
+  <xacro:include filename="$(find ur_description)/urdf/ur_macro.xacro"/>
+  <xacro:include filename="$(find crisp_ur_mujoco)/urdf/ur.ros2_control_mujoco.xacro"/>
+  <xacro:include filename="$(find ur_description)/urdf/inc/ur_transmissions.xacro" />
+  <xacro:include filename="$(find crisp_ur_mujoco)/urdf/ur.mujoco_actuators.urdf.xacro"/>
+
+  <!-- possible 'ur_type' values -->
+  <xacro:arg name="ur_type" default="ur30"/>
+
+  <!-- robot parameters -->
+  <xacro:arg name="tf_prefix" default="" />
+  <xacro:arg name="joint_limit_params" default="$(find ur_description)/config/$(arg ur_type)/joint_limits.yaml"/>
+  <xacro:arg name="kinematics_params" default="$(find ur_description)/config/$(arg ur_type)/default_kinematics.yaml"/>
+  <xacro:arg name="physical_params" default="$(find ur_description)/config/$(arg ur_type)/physical_parameters.yaml"/>
+  <xacro:arg name="visual_params" default="$(find ur_description)/config/$(arg ur_type)/visual_parameters.yaml"/>
+  <xacro:arg name="transmission_hw_interface" default=""/>
+  <xacro:arg name="safety_limits" default="false"/>
+  <xacro:arg name="safety_pos_margin" default="0.15"/>
+  <xacro:arg name="safety_k_position" default="20"/>
+
+  <!-- ros2_control related parameters -->
+  <xacro:arg name="headless_mode" default="false" />
+  <xacro:arg name="robot_ip" default="0.0.0.0" />
+  <xacro:arg name="script_filename" default=""/>
+  <xacro:arg name="output_recipe_filename" default=""/>
+  <xacro:arg name="input_recipe_filename" default=""/>
+  <xacro:arg name="reverse_ip" default="0.0.0.0"/>
+  <xacro:arg name="script_command_port" default="50004"/>
+  <xacro:arg name="reverse_port" default="50001"/>
+  <xacro:arg name="script_sender_port" default="50002"/>
+  <xacro:arg name="trajectory_port" default="50003"/>
+
+  <!-- tool communication -->
+  <xacro:arg name="use_tool_communication" default="false" />
+  <xacro:arg name="tool_voltage" default="0" />
+  <xacro:arg name="tool_parity" default="0" />
+  <xacro:arg name="tool_baud_rate" default="115200" />
+  <xacro:arg name="tool_stop_bits" default="1" />
+  <xacro:arg name="tool_rx_idle_chars" default="1.5" />
+  <xacro:arg name="tool_tx_idle_chars" default="3.5" />
+  <xacro:arg name="tool_device_name" default="/tmp/ttyUR" />
+  <xacro:arg name="tool_tcp_port" default="54321" />
+
+  <!-- simulation parameters -->
+  <xacro:arg name="use_mock_hardware" default="false" />
+  <xacro:arg name="mock_sensor_commands" default="false" />
+  <xacro:arg name="simulation_controllers" default="" />
+
+  <!-- initial position -->
+  <xacro:arg name="initial_positions_file" default="$(find ur_description)/config/initial_positions.yaml"/>
+  <xacro:property name="initial_positions_file" default="$(arg initial_positions_file)"/>
+
+  <!-- MuJoCo parameters -->
+  <xacro:arg name="mujoco" default="true"/>
+  <xacro:arg name="mujoco_model_path" default="/tmp/mujoco"/>
+  <xacro:arg name="autolimits" default="true"/>
+  <xacro:arg name="balanceinertia" default="true"/>
+  <xacro:arg name="integrator" default="implicitfast"/>
+  <xacro:arg name="gravity" default="0 0 -9.81"/>
+  <xacro:arg name="impratio" default="1"/>
+  <xacro:arg name="cone" default="elliptic"/>
+  <xacro:arg name="solver" default="Newton"/>
+  <xacro:arg name="noslip_iterations" default="3"/>
+  <xacro:arg name="multiccd" default="disable"/>
+  <xacro:arg name="actuator_kp" default="200"/>
+  <xacro:arg name="actuator_kv" default="20"/>
+  <xacro:arg name="actuator_gear" default="1"/>
+
+  <!-- create link fixed to the "world" -->
+  <link name="world" />
+
+  <xacro:ur_robot
+    name="$(arg name)"
+    tf_prefix="$(arg tf_prefix)"
+    parent="world"
+    joint_limits_parameters_file="$(arg joint_limit_params)"
+    kinematics_parameters_file="$(arg kinematics_params)"
+    physical_parameters_file="$(arg physical_params)"
+    visual_parameters_file="$(arg visual_params)"
+    safety_limits="$(arg safety_limits)"
+    safety_pos_margin="$(arg safety_pos_margin)"
+    safety_k_position="$(arg safety_k_position)"
+    >
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:ur_robot>
+
+  <!-- ros2 control instance -->
+  <xacro:ur_ros2_control
+    name="$(arg name)"
+    tf_prefix="$(arg tf_prefix)"
+    kinematics_parameters_file="$(arg kinematics_params)"
+    transmission_hw_interface="$(arg transmission_hw_interface)"
+    use_mock_hardware="$(arg use_mock_hardware)"
+    mock_sensor_commands="$(arg mock_sensor_commands)"
+    headless_mode="$(arg headless_mode)"
+    initial_positions="${xacro.load_yaml(initial_positions_file)}"
+    use_tool_communication="$(arg use_tool_communication)"
+    tool_voltage="$(arg tool_voltage)"
+    tool_parity="$(arg tool_parity)"
+    tool_baud_rate="$(arg tool_baud_rate)"
+    tool_stop_bits="$(arg tool_stop_bits)"
+    tool_rx_idle_chars="$(arg tool_rx_idle_chars)"
+    tool_tx_idle_chars="$(arg tool_tx_idle_chars)"
+    tool_device_name="$(arg tool_device_name)"
+    tool_tcp_port="$(arg tool_tcp_port)"
+    robot_ip="$(arg robot_ip)"
+    script_filename="$(arg script_filename)"
+    output_recipe_filename="$(arg output_recipe_filename)"
+    input_recipe_filename="$(arg input_recipe_filename)"
+    reverse_ip="$(arg reverse_ip)"
+    script_command_port="$(arg script_command_port)"
+    reverse_port="$(arg reverse_port)"
+    script_sender_port="$(arg script_sender_port)"
+    trajectory_port="$(arg trajectory_port)"
+  />
+
+  <!-- MuJoCo-specific block -->
+  <xacro:if value="$(arg mujoco)">
+    <mujoco>
+      <compiler
+        meshdir="$(arg mujoco_model_path)/meshes"
+        discardvisual="false"
+        autolimits="$(arg autolimits)"
+        balanceinertia="$(arg balanceinertia)"
+      />
+      <option
+        integrator="$(arg integrator)"
+        gravity="$(arg gravity)"
+        impratio="$(arg impratio)"
+        cone="$(arg cone)"
+        solver="$(arg solver)"
+        noslip_iterations="$(arg noslip_iterations)">
+        <flag multiccd="$(arg multiccd)"/>
+      </option>
+
+      <xacro:create_ur_mujoco_actuators
+        ur_type="$(arg ur_type)"
+        tf_prefix="$(arg tf_prefix)"
+        kp="$(arg actuator_kp)"
+        kv="$(arg actuator_kv)"
+        gear="$(arg actuator_gear)"/>
+    </mujoco>
+  </xacro:if>
+
+</robot>

@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!--
+    MuJoCo-specific ros2_control block for UR robots.
+
+    Exposes:
+      - position command
+      - velocity command
+      - effort command
+      - position / velocity / effort state
+  -->
+
+  <xacro:macro name="ur_ros2_control" params="
+    name
+    tf_prefix
+    kinematics_parameters_file
+    robot_ip
+    script_filename
+    input_recipe_filename
+    output_recipe_filename
+    transmission_hw_interface:=hardware_interface/PositionJointInterface
+    use_mock_hardware:=false
+    mock_sensor_commands:=false
+    headless_mode:=false
+    initial_positions:=${dict(shoulder_pan_joint=0.0,shoulder_lift_joint=-1.57,elbow_joint=0.0,wrist_1_joint=-1.57,wrist_2_joint=0.0,wrist_3_joint=0.0)}
+    use_tool_communication:=false
+    tool_voltage:=0 tool_parity:=0 tool_baud_rate:=115200 tool_stop_bits:=1
+    tool_rx_idle_chars:=1.5 tool_tx_idle_chars:=3.5 tool_device_name:=/tmp/ttyUR tool_tcp_port:=54321
+    reverse_port:=50001
+    script_sender_port:=50002
+    reverse_ip:=0.0.0.0
+    script_command_port:=50004
+    trajectory_port:=50003
+    non_blocking_read:=true
+    robot_receive_timeout:=0.04
+    mujoco_model:=''
+    ">
+
+    <!-- Needed by the real driver (hash param), harmless for MuJoCo -->
+    <xacro:property name="config_kinematics_parameters" value="${xacro.load_yaml(kinematics_parameters_file)}"/>
+    <xacro:property name="sec_kinematics" value="${config_kinematics_parameters['kinematics']}" />
+    <xacro:property name="kinematics_hash" value="${sec_kinematics['hash']}" scope="parent"/>
+    <ros2_control name="${name}" type="system">
+      <hardware>
+        <plugin>mujoco_ros2_control/MujocoSystem</plugin>
+      </hardware>
+
+      <joint name="${tf_prefix}shoulder_pan_joint">
+        <!-- <command_interface name="position"/>
+        <command_interface name="velocity"/> -->
+        <command_interface name="effort"/>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['shoulder_pan_joint']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+      </joint>
+
+      <joint name="${tf_prefix}shoulder_lift_joint">
+        <!-- <command_interface name="position"/>
+        <command_interface name="velocity"/> -->
+        <command_interface name="effort"/>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['shoulder_lift_joint']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+      </joint>
+
+      <joint name="${tf_prefix}elbow_joint">
+        <!-- <command_interface name="position"/>
+        <command_interface name="velocity"/> -->
+        <command_interface name="effort"/>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['elbow_joint']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+      </joint>
+
+      <joint name="${tf_prefix}wrist_1_joint">
+        <!-- <command_interface name="position"/>
+        <command_interface name="velocity"/> -->
+        <command_interface name="effort"/>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['wrist_1_joint']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+      </joint>
+
+      <joint name="${tf_prefix}wrist_2_joint">
+        <!-- <command_interface name="position"/>
+        <command_interface name="velocity"/> -->
+        <command_interface name="effort"/>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['wrist_2_joint']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+      </joint>
+
+      <joint name="${tf_prefix}wrist_3_joint">
+        <!-- <command_interface name="position"/>
+        <command_interface name="velocity"/> -->
+        <command_interface name="effort"/>
+        <state_interface name="position">
+          <param name="initial_value">${initial_positions['wrist_3_joint']}</param>
+        </state_interface>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+      </joint>
+    </ros2_control>
+
+  </xacro:macro>
+
+</robot>

@@ -1,0 +1,21 @@
+--- a/mujoco_ros2_control/src/mujoco_system.cpp
++++ b/mujoco_ros2_control/src/mujoco_system.cpp
+@@ -174,12 +174,18 @@
+                             hardware_interface::HW_IF_POSITION,
+                             &joint.position));
+                     joint.position = string_to_double(state_interface.initial_value);
++                    if (joint.mujoco_joint_id != -1 && joint.mujoco_qpos_addr >= 0) {
++                        mujoco_data_->qpos[joint.mujoco_qpos_addr] = joint.position;
++                    }
+                 } else if (state_interface.name == "velocity") {
+                     joint.state_interfaces.emplace_back(&state_interfaces_.emplace_back(
+                             joint.name,
+                             hardware_interface::HW_IF_VELOCITY,
+                             &joint.velocity));
+                     joint.velocity = string_to_double(state_interface.initial_value);
++                    if (joint.mujoco_joint_id != -1 && joint.mujoco_dofadr >= 0) {
++                        mujoco_data_->qvel[joint.mujoco_dofadr] = joint.velocity;
++                    }
+                 } else if (state_interface.name == "acceleration") {
+                     joint.state_interfaces.emplace_back(&state_interfaces_.emplace_back(
+                             joint.name,

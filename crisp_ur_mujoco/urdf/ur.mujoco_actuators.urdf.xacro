@@ -1,0 +1,75 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://wiki.ros.org/xacro">
+
+  <xacro:macro name="create_ur_mujoco_actuator_set" params="
+    tf_prefix
+    joint_name
+    effort_limit
+    kp:=200
+    kv:=20
+    gear:=1
+  ">
+    <!-- Torque / effort actuator for ros2_control effort command interface.
+         kp and kv are kept for compatibility with existing macro calls,
+         but are not used by the motor actuator. -->
+    <motor
+      name="${tf_prefix}${joint_name}_motor"
+      joint="${tf_prefix}${joint_name}"
+      gear="${gear}"
+      ctrlrange="${-effort_limit} ${effort_limit}"
+      forcerange="${-effort_limit} ${effort_limit}"
+      ctrllimited="true"
+      forcelimited="true"/>
+  </xacro:macro>
+
+  <xacro:macro name="create_ur_mujoco_actuators" params="
+    ur_type
+    tf_prefix:=''
+    kp:=200
+    kv:=20
+    gear:=1
+  ">
+    <xacro:property name="joint_limits_file" value="$(find ur_description)/config/${ur_type}/joint_limits.yaml"/>
+    <xacro:property name="joint_limits_yaml" value="${xacro.load_yaml(joint_limits_file)}"/>
+    <xacro:property name="joint_limits" value="${joint_limits_yaml['joint_limits']}"/>
+
+    <actuator>
+      <xacro:create_ur_mujoco_actuator_set
+        tf_prefix="${tf_prefix}"
+        joint_name="shoulder_pan_joint"
+        effort_limit="${joint_limits['shoulder_pan_joint']['max_effort']}"
+        kp="${kp}" kv="${kv}" gear="${gear}"/>
+
+      <xacro:create_ur_mujoco_actuator_set
+        tf_prefix="${tf_prefix}"
+        joint_name="shoulder_lift_joint"
+        effort_limit="${joint_limits['shoulder_lift_joint']['max_effort']}"
+        kp="${kp}" kv="${kv}" gear="${gear}"/>
+
+      <xacro:create_ur_mujoco_actuator_set
+        tf_prefix="${tf_prefix}"
+        joint_name="elbow_joint"
+        effort_limit="${joint_limits['elbow_joint']['max_effort']}"
+        kp="${kp}" kv="${kv}" gear="${gear}"/>
+
+      <xacro:create_ur_mujoco_actuator_set
+        tf_prefix="${tf_prefix}"
+        joint_name="wrist_1_joint"
+        effort_limit="${joint_limits['wrist_1_joint']['max_effort']}"
+        kp="${kp}" kv="${kv}" gear="${gear}"/>
+
+      <xacro:create_ur_mujoco_actuator_set
+        tf_prefix="${tf_prefix}"
+        joint_name="wrist_2_joint"
+        effort_limit="${joint_limits['wrist_2_joint']['max_effort']}"
+        kp="${kp}" kv="${kv}" gear="${gear}"/>
+
+      <xacro:create_ur_mujoco_actuator_set
+        tf_prefix="${tf_prefix}"
+        joint_name="wrist_3_joint"
+        effort_limit="${joint_limits['wrist_3_joint']['max_effort']}"
+        kp="${kp}" kv="${kv}" gear="${gear}"/>
+    </actuator>
+  </xacro:macro>
+
+</robot>

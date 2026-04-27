@@ -4,7 +4,7 @@ x-base: &base
     context: .
     dockerfile: docker/Dockerfile.ur
     args:
-      ROS_DISTRO: rolling
+      ROS_DISTRO: jazzy
     target: base
 
   network_mode: host
@@ -17,7 +17,7 @@ x-base: &base
   stdin_open: true
 
   volumes:
-    - $HOME/.Xauthority:/root/.Xauthority
+    - $HOME/.Xauthority:/home/ros/.Xauthority:ro
     - /tmp/.X11-unix:/tmp/.X11-unix:rw
     - /dev:/dev
     - /usr/bin/docker:/usr/bin/docker
@@ -58,26 +58,27 @@ services:
   launch_ur:
     <<: *ur-overlay
     command: >
-      bash -lc "source /opt/ros/rolling/setup.bash &&
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
       source install/setup.bash &&
       export ROS_NETWORK_INTERFACE=${ROS_NETWORK_INTERFACE:-lo} &&
       RMW=${RMW:-} source src/crisp_ur_demo/scripts/setup_middleware.sh &&
-      ros2 launch crisp_ur_demos ur.launch.py 
+      ros2 launch crisp_ur_demos ur.launch.py
       ur_type:=ur30 robot_ip:=${ROBOT_IP:-192.168.56.1} use_rviz:=True"
-  
-  launch_ursim:  
+
+  launch_ursim:
     <<: *ur-overlay
     user: root
     command: >
-      bash -lc "source /opt/ros/rolling/setup.bash &&
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
       source install/setup.bash &&
       export ROS_NETWORK_INTERFACE=${ROS_NETWORK_INTERFACE:-lo} &&
       RMW=${RMW:-} source src/crisp_ur_demo/scripts/setup_middleware.sh &&
       ros2 run ur_client_library start_ursim.sh -v 10.11.0 -m ur30"
+
   launch_zenoh_router:
     <<: *base
     command: >
-      bash -lc "source /opt/ros/rolling/setup.bash &&
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
       export RMW_IMPLEMENTATION=rmw_zenoh_cpp &&
       export RUST_LOG=zenoh=info &&
       ros2 doctor -r | grep rmw_zenoh_cpp &&
@@ -87,9 +88,9 @@ services:
   launch_ur_mujoco:
     <<: *ur-overlay
     command: >
-      bash -lc "source /opt/ros/rolling/setup.bash &&
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
       source install/setup.bash &&
       export ROS_NETWORK_INTERFACE=${ROS_NETWORK_INTERFACE:-lo} &&
       RMW=${RMW:-} source src/crisp_ur_demo/scripts/setup_middleware.sh &&
-      ros2 launch crisp_ur_demos ur.launch.py \
-      ur_type:=ur30 robot_ip:=${ROBOT_IP:-192.168.56.101} use_fake_hardware:=true use_rviz:=True"
+      ros2 launch crisp_ur_mujoco ur_mujoco.launch.py
+      ur_type:=ur30 use_rviz:=True show_gui:=True use_pose_broadcaster:=False"

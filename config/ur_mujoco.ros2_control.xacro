@@ -41,6 +41,7 @@
         <xacro:if value="${use_mock_hardware}">
          <plugin>crisp_mujoco_sim/Simulator</plugin>
             <param name="mujoco_model">$(find crisp_ur_demos)/config/scene.xml</param>
+            <param name="visualize">true</param>
         </xacro:if>
         <xacro:unless value="${use_mock_hardware}">
           <plugin>ur_robot_driver/URPositionHardwareInterface</plugin>

@@ -1,12 +1,11 @@
-ARG ROS_DISTRO=rolling
+ARG ROS_DISTRO=jazzy
 ARG CRISP_CONTROLLERS_VERSION=1.1.0
 
 FROM osrf/ros:${ROS_DISTRO}-desktop AS base
 
+ARG ROS_DISTRO=jazzy
 ENV ROS_DISTRO=${ROS_DISTRO}
-ARG MUJOCO_VERSION=3.2.6
 
-# Create a non-root user
 ARG USERNAME=ros
 ARG USER_UID=1000
 ARG USER_GID=$USER_UID
@@ -14,111 +13,143 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 SHELL ["/bin/bash", "-c"]
 
-# Delete existing user if it exists
+# Remove existing user/group if IDs already exist
 RUN if getent passwd ${USER_UID}; then \
-    userdel -r $(getent passwd ${USER_UID} | cut -d: -f1); \
+      userdel -r "$(getent passwd ${USER_UID} | cut -d: -f1)"; \
+    fi && \
+    if getent group ${USER_GID}; then \
+      groupdel "$(getent group ${USER_GID} | cut -d: -f1)"; \
     fi
 
-# Delete existing group if it exists
-RUN if getent group ${USER_GID}; then \
-    groupdel $(getent group ${USER_GID} | cut -d: -f1); \
-    fi
+RUN groupadd --gid ${USER_GID} ${USERNAME} && \
+    useradd -s /bin/bash --uid ${USER_UID} --gid ${USER_GID} -m ${USERNAME} && \
+    mkdir -p /home/${USERNAME}/.config && \
+    chown -R ${USER_UID}:${USER_GID} /home/${USERNAME}/.config
 
-RUN groupadd --gid $USER_GID $USERNAME \
-  && useradd -s /bin/bash --uid $USER_UID --gid $USER_GID -m $USERNAME \
-  && mkdir /home/$USERNAME/.config && chown $USER_UID:$USER_GID /home/$USERNAME/.config
-
-# Set up sudo
-RUN apt-get update \
-  && apt-get install -y sudo \
-  && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME\
-  && chmod 0440 /etc/sudoers.d/$USERNAME \
-  && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y sudo && \
+    echo ${USERNAME} ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/${USERNAME} && \
+    chmod 0440 /etc/sudoers.d/${USERNAME} && \
+    rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    vim \
-    build-essential \
-    cmake \
-    wget \
-    git \
-    unzip \
-    pip \
-    python3-venv \
-    python3-flake8 \
-    python3-rosdep \
-    python3-setuptools \
-    python3-vcstool \
-    python3-colcon-common-extensions \
-    cmake \
-    libpoco-dev \
-    libeigen3-dev \
-    ros-$ROS_DISTRO-ros2-control \
-    ros-$ROS_DISTRO-ros2-controllers \
-    ros-$ROS_DISTRO-rmw-cyclonedds-cpp \
-    ros-$ROS_DISTRO-ament-index-cpp \
-    ros-$ROS_DISTRO-rmw-zenoh-cpp \
-    dpkg
+      vim \
+      build-essential \
+      cmake \
+      wget \
+      git \
+      unzip \
+      python3-pip \
+      python3-venv \
+      python3-flake8 \
+      python3-rosdep \
+      python3-setuptools \
+      python3-vcstool \
+      python3-colcon-common-extensions \
+      python3-scipy \
+      pkg-config \
+      libpoco-dev \
+      libeigen3-dev \
+      libglfw3-dev \
+      libgl1-mesa-dev \
+      libgl1-mesa-dri \
+      libx11-dev \
+      libx11-6 \
+      libxrandr2 \
+      libxi6 \
+      libxinerama1 \
+      libxcursor1 \
+      libxext6 \
+      xorg-dev \
+      mesa-utils \
+      libopencv-dev \
+      libpcl-dev \
+      ros-${ROS_DISTRO}-urdf \
+      ros-${ROS_DISTRO}-xacro \
+      ros-${ROS_DISTRO}-rviz2 \
+      ros-${ROS_DISTRO}-ros2-control \
+      ros-${ROS_DISTRO}-ros2-controllers \
+      ros-${ROS_DISTRO}-controller-manager \
+      ros-${ROS_DISTRO}-joint-state-publisher \
+      ros-${ROS_DISTRO}-joint-state-publisher-gui \
+      ros-${ROS_DISTRO}-robot-state-publisher \
+      ros-${ROS_DISTRO}-pcl-ros \
+      ros-${ROS_DISTRO}-perception-pcl \
+      ros-${ROS_DISTRO}-pcl-conversions \
+      ros-${ROS_DISTRO}-cv-bridge \
+      ros-${ROS_DISTRO}-urdfdom-py \
+      ros-${ROS_DISTRO}-rmw-cyclonedds-cpp \
+      ros-${ROS_DISTRO}-ament-index-cpp \
+      ros-${ROS_DISTRO}-rmw-zenoh-cpp \
+      ros-${ROS_DISTRO}-launch-param-builder && \
+    rm -rf /var/lib/apt/lists/*
 
-# Symlink python3 to python
-RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN ln -sf /usr/bin/python3 /usr/bin/python
 
-USER $USERNAME
+USER ${USERNAME}
+RUN mkdir -p /home/${USERNAME}/ros2_ws/src
+WORKDIR /home/${USERNAME}/ros2_ws
 
-RUN mkdir -p /home/ros/ros2_ws
-
-# === INSTALL MUJOCO ===
-
-WORKDIR /home/ros
-
-ENV MUJOCO_VERSION=${MUJOCO_VERSION}
-
-RUN sudo apt update && sudo apt-get install -y libglfw3-dev wget \ 
-    && wget https://github.com/google-deepmind/mujoco/releases/download/$MUJOCO_VERSION/mujoco-$MUJOCO_VERSION-linux-x86_64.tar.gz \
-    && tar -xzf mujoco-${MUJOCO_VERSION}-linux-x86_64.tar.gz -C "/home/ros"
-
-
-WORKDIR /home/ros/ros2_ws
+# Optional empty build, similar to repo example
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build
+RUN echo "source /home/${USERNAME}/ros2_ws/install/setup.bash" >> /home/${USERNAME}/.bashrc
 
 FROM base AS ur
 
-# === UR ROS2 with effort interface ===
-# Clone the UR driver with effort interface support
-RUN git clone https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver.git src/Universal_Robots_ROS2_Driver \
-    && source /opt/ros/${ROS_DISTRO}/setup.bash \
-    && sudo apt-get update \
-    && cd src/Universal_Robots_ROS2_Driver \
-    && vcs import .. < Universal_Robots_ROS2_Driver.${ROS_DISTRO}.repos --recursive --skip-existing || true
+# Clone only UR repo so we can build ur_description
+RUN git clone --branch ${ROS_DISTRO} https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver.git src/Universal_Robots_ROS2_Driver
 
-# Copy your modified ros2_control xacro
+# Optional override for your real-robot ros2_control xacro
 COPY --chown=ros:ros config/ur.ros2_control.xacro \
-     /home/ros/ros2_ws/src/Universal_Robots_ROS2_Driver/ur_robot_driver/urdf/ur.ros2_control.xacro
+  /home/ros/ros2_ws/src/Universal_Robots_ROS2_Driver/ur_robot_driver/urdf/ur.ros2_control.xacro
 
-# Resolve deps and build
-RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
-    && cd /home/ros/ros2_ws \
-    && rosdep update \
-    && rosdep install --from-paths src --ignore-src --rosdistro $ROS_DISTRO -y \
-    && colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release \
-    && find src/Universal_Robots_ROS2_Driver -mindepth 1 -maxdepth 1 -type d -exec touch {}/COLCON_IGNORE \;
+# Build only ur_description, then ignore the rest of the UR repo
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    cd /home/ros/ros2_ws && \
+    colcon build --symlink-install \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release \
+      --packages-select ur_description && \
+    find src/Universal_Robots_ROS2_Driver -mindepth 1 -maxdepth 1 -type d ! -name ur_description -exec touch {}/COLCON_IGNORE \;
 
 FROM ur AS ur-overlay
 
 ARG CRISP_CONTROLLERS_VERSION=1.1.0
 
-# Clone topic_based_ros2_control from source
-RUN git clone --branch main https://github.com/ros-controls/topic_based_hardware_interfaces.git src/topic_based_hardware_interfaces
+# MuJoCo backend
+COPY --chown=ros:ros config/mujoco_system_initial_positions.patch \
+  /tmp/mujoco_system_initial_positions.patch
+COPY --chown=ros:ros config/mujoco_system_effort_state.patch \
+  /tmp/mujoco_system_effort_state.patch
+COPY --chown=ros:ros config/mujoco_ros2_control_step_timing.patch \
+  /tmp/mujoco_ros2_control_step_timing.patch
+RUN git clone --branch jazzy https://github.com/dfki-ric/mujoco_ros2_control.git src/mujoco_ros2_control && \
+    git -C src/mujoco_ros2_control apply /tmp/mujoco_system_initial_positions.patch && \
+    git -C src/mujoco_ros2_control apply /tmp/mujoco_system_effort_state.patch && \
+    git -C src/mujoco_ros2_control apply /tmp/mujoco_ros2_control_step_timing.patch && \
+    if [ -d src/mujoco_ros2_control/franka_mujoco ]; then touch src/mujoco_ros2_control/franka_mujoco/COLCON_IGNORE; fi && \
+    if [ -d src/mujoco_ros2_control/unitree_h1_mujoco ]; then touch src/mujoco_ros2_control/unitree_h1_mujoco/COLCON_IGNORE; fi
 
-
+# Your repository
 COPY . src/crisp_ur_demo
 
-RUN git clone --branch $ROS_DISTRO --depth 1 https://github.com/utiasDSL/crisp_controllers.git src/crisp_controllers
+# CRISP controllers
+RUN git clone --branch ${ROS_DISTRO} --depth 1 https://github.com/utiasDSL/crisp_controllers.git src/crisp_controllers
+# Patch CRISP Cartesian controller to avoid parameter-service deadlock in controller_manager
+COPY --chown=ros:ros /config/cartesian_controller.cpp \
+  /home/ros/ros2_ws/src/crisp_controllers/src/cartesian_controller.cpp
 
-
-RUN source /opt/ros/$ROS_DISTRO/setup.bash \
-    && source /home/ros/ros2_ws/install/setup.bash \
-    && sudo apt update \
-    && rosdep update \
-    && rosdep install -q --from-paths src --ignore-src -y \
-    && colcon build --symlink-install \ 
-        --cmake-args -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON --packages-select crisp_mujoco_sim crisp_controllers crisp_ur_demos crisp_mujoco_sim
+# Install rosdeps only for the packages you actually need
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    source /home/ros/ros2_ws/install/setup.bash && \
+    sudo apt-get update && \
+    rosdep update && \
+    rosdep install -q \
+      --from-paths \
+        src/mujoco_ros2_control/mujoco_ros2_control \
+        src/crisp_controllers \
+        src/crisp_ur_demo/crisp_ur_mujoco \
+      --ignore-src --rosdistro ${ROS_DISTRO} -y && \
+    colcon build --symlink-install \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+      --packages-up-to mujoco_ros2_control crisp_controllers crisp_ur_mujoco

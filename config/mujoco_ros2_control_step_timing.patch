@@ -1,0 +1,47 @@
+--- a/mujoco_ros2_control/src/mujoco_ros2_control_plugin.cpp
++++ b/mujoco_ros2_control/src/mujoco_ros2_control_plugin.cpp
+@@ -77,16 +77,16 @@ MujocoRos2Control::MujocoRos2Control(rclcpp::Node::SharedPtr &node) : nh_(node)
+ 
+   init_mujoco();
+ 
+-  init_controller_manager();
+-
+-  // Start MuJoCo
++  // Start MuJoCo from a clean state before the ros2_control hardware registers
++  // initial joint values. Otherwise mj_resetData() wipes qpos/qvel values
++  // written by the hardware interface during initSim().
+   mj_resetData(mujoco_model_, mujoco_data_);
+ 
+-  // compute forward kinematics for new pos
++  init_controller_manager();
++
++  // compute forward kinematics for the possibly updated initial qpos/qvel
+   mj_forward(mujoco_model_, mujoco_data_);
+ 
+-  // run simulation to setup the new pos
+-  mj_step(mujoco_model_, mujoco_data_);
+   mujoco_start_time_ = mujoco_data_->time;
+ 
+   clock_gettime(CLOCK_MONOTONIC, &startTime_);
+@@ -164,6 +164,10 @@ void MujocoRos2Control::update() {
+       publish_sim_time();
+       rclcpp::Time sim_time_ros = rclcpp::Time((int64_t) (mujoco_data_->time * 1e+9), RCL_ROS_TIME);
+       rclcpp::Duration sim_period = sim_time_ros - last_update_sim_time_ros_;
++      // Match MuJoCo's recommended split-step control timing: compute position
++      // and velocity dependent quantities, then update ros2_control, then finish
++      // the dynamics step with the freshly written controls.
++      mj_step1(mujoco_model_, mujoco_data_);
+ 
+       // check if we should update the controllers
+       if (sim_period >= control_period_) {
+@@ -178,8 +181,8 @@ void MujocoRos2Control::update() {
+         controller_manager_->write(sim_time_ros, sim_period);
+       }
+ 
+-      // Calculate the next mujoco step
+-      mj_step(mujoco_model_, mujoco_data_);
++      // Finish the MuJoCo step using the commands written above.
++      mj_step2(mujoco_model_, mujoco_data_);
+ 
+       // save data for rendering
+       std::unique_lock<std::mutex> guard(mjdata_mtx_, std::try_to_lock);
