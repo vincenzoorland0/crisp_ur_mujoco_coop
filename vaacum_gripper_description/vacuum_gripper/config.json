@@ -1,0 +1,8 @@
+{
+  "document_id": "4b207e6831627653b3a849ee",
+  "output_format": "urdf",
+  "output_filename": "vacuum_gripper",
+  "robot_name": "vacuum_gripper",
+  "package_name": "vaacum_gripper_description",
+  "assembly_name": "vacuum_gripper_v1"
+}

@@ -10,6 +10,7 @@ from launch.actions import (
     LogInfo,
     OpaqueFunction,
     RegisterEventHandler,
+    TimerAction,
 )
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit, OnProcessStart
@@ -19,93 +20,55 @@ from launch_ros.actions import Node
 import xacro
 
 
-FLANGE_FT_BODY_NAME = "flange"
-FLANGE_FT_SITE_NAME = "flange_ft_site"
-UR_GRAVCOMP_BODY_NAMES = {
-    "base",
-    "base_link",
-    "base_link_inertia",
-    "shoulder_link",
-    "upper_arm_link",
-    "forearm_link",
-    "wrist_1_link",
-    "wrist_2_link",
-    "wrist_3_link",
-    "flange",
-    "tool0",
-}
+def _append_fixed_joint(robot_root, parent_link, child_link, xyz, rpy):
+    joint = ET.Element("joint", {"name": "ur_flange_to_vacuum_gripper", "type": "fixed"})
+    ET.SubElement(joint, "origin", {"xyz": xyz, "rpy": rpy})
+    ET.SubElement(joint, "parent", {"link": parent_link})
+    ET.SubElement(joint, "child", {"link": child_link})
+    robot_root.append(joint)
 
 
-def _append_flange_ft_sensor(root):
-    flange_body = None
-    for body in root.iter("body"):
-        if body.get("name") == FLANGE_FT_BODY_NAME:
-            flange_body = body
-            break
-
-    if flange_body is None:
-        return False, 0
-
-    if not any(site.get("name") == FLANGE_FT_SITE_NAME for site in flange_body.findall("site")):
-        ET.SubElement(
-            flange_body,
-            "site",
-            {
-                "name": FLANGE_FT_SITE_NAME,
-                "pos": "0 0 0",
-                "size": "0.01",
-                "rgba": "0.1 0.8 0.1 0.6",
-            },
-        )
-
-    sensor_root = root.find("sensor")
-    if sensor_root is None:
-        sensor_root = ET.SubElement(root, "sensor")
-
-    added_sensors = 0
-    existing_names = {
-        sensor.get("name") for sensor in sensor_root if sensor.get("name") is not None
+def _root_link_name(robot_root):
+    links = [link.get("name") for link in robot_root.findall("link")]
+    children = {
+        child.get("link")
+        for joint in robot_root.findall("joint")
+        for child in [joint.find("child")]
+        if child is not None
     }
-    if "flange_ft_site_force" not in existing_names:
-        ET.SubElement(sensor_root, "force", {"name": "flange_ft_site_force", "site": FLANGE_FT_SITE_NAME})
-        added_sensors += 1
-    if "flange_ft_site_torque" not in existing_names:
-        ET.SubElement(sensor_root, "torque", {"name": "flange_ft_site_torque", "site": FLANGE_FT_SITE_NAME})
-        added_sensors += 1
-
-    return True, added_sensors
+    roots = [link for link in links if link not in children]
+    if not roots:
+        raise RuntimeError("Vacuum gripper URDF has no root link.")
+    return roots[0]
 
 
-def _apply_ur_gravity_compensation(root, joint_names):
-    patched_bodies = 0
+def _merge_urdf_documents(ur_xml, gripper_urdf_path, parent_link, mount_xyz, mount_rpy):
+    ur_root = ET.fromstring(ur_xml)
+    gripper_root = ET.parse(gripper_urdf_path).getroot()
+    gripper_base_link = _root_link_name(gripper_root)
 
-    for body in root.iter("body"):
-        body_name = body.get("name", "")
-        body_has_ur_joint = any(
-            joint.get("name") in joint_names for joint in body.findall("joint")
-        )
+    for element in list(gripper_root):
+        ur_root.append(element)
 
-        if body_name in UR_GRAVCOMP_BODY_NAMES or body_has_ur_joint:
-            body.set("gravcomp", "1")
-            patched_bodies += 1
+    _append_fixed_joint(
+        ur_root,
+        parent_link=parent_link,
+        child_link=gripper_base_link,
+        xyz=mount_xyz,
+        rpy=mount_rpy,
+    )
 
-    return patched_bodies
+    return ET.tostring(ur_root, encoding="unicode"), gripper_base_link
 
 
 def create_nodes(context: LaunchContext):
-    import shutil
-
     namespace = ""
 
-    # Create mujoco directory
     mujoco_model_path = "/tmp/mujoco"
     if os.path.exists(mujoco_model_path):
         shutil.rmtree(mujoco_model_path)
     os.makedirs(mujoco_model_path, exist_ok=True)
 
-    # ----------------------------
-    # Launch arguments
-    # ----------------------------
     ur_type = LaunchConfiguration("ur_type")
     rviz = LaunchConfiguration("use_rviz")
     show_gui = LaunchConfiguration("show_gui")
@@ -115,6 +78,9 @@ def create_nodes(context: LaunchContext):
     mujoco_joint_armature = LaunchConfiguration("mujoco_joint_armature")
     mujoco_joint_damping = LaunchConfiguration("mujoco_joint_damping")
     mujoco_joint_frictionloss = LaunchConfiguration("mujoco_joint_frictionloss")
+    gripper_parent_link = LaunchConfiguration("gripper_parent_link")
+    gripper_mount_xyz = LaunchConfiguration("gripper_mount_xyz")
+    gripper_mount_rpy = LaunchConfiguration("gripper_mount_rpy")
 
     ur_type_str = context.perform_substitution(ur_type)
     gravity_str = context.perform_substitution(gravity)
@@ -122,27 +88,29 @@ def create_nodes(context: LaunchContext):
     mujoco_joint_armature_str = context.perform_substitution(mujoco_joint_armature)
     mujoco_joint_damping_str = context.perform_substitution(mujoco_joint_damping)
     mujoco_joint_frictionloss_str = context.perform_substitution(mujoco_joint_frictionloss)
+    gripper_parent_link_str = context.perform_substitution(gripper_parent_link)
+    gripper_mount_xyz_str = context.perform_substitution(gripper_mount_xyz)
+    gripper_mount_rpy_str = context.perform_substitution(gripper_mount_rpy)
 
-    # ----------------------------
-    # Paths
-    # ----------------------------
     mujoco_model_file = os.path.join(mujoco_model_path, "main.xml")
 
     pkg_mujoco = get_package_share_directory("crisp_ur_mujoco")
     pkg_mujoco_ros2_control = get_package_share_directory("mujoco_ros2_control")
+    pkg_gripper = get_package_share_directory("vaacum_gripper_description")
 
     ur_xacro_filepath = os.path.join(pkg_mujoco, "urdf", "ur.urdf_mujoco.xacro")
+    gripper_urdf_filepath = os.path.join(
+        pkg_gripper, "vacuum_gripper", "vacuum_gripper.urdf"
+    )
     ros2_control_params_file = os.path.join(
         pkg_mujoco, "config", "controllers_mujoco.yaml"
     )
     rviz_config_file = os.path.join(pkg_mujoco, "config", "rviz_view.rviz")
-    # ----------------------------
-    # Build robot_description
-    # ----------------------------
-    robot_description_str = xacro.process_file(
+
+    ur_description_str = xacro.process_file(
         ur_xacro_filepath,
         mappings={
-            "name": "ur",
+            "name": "ur_vacuum_gripper",
             "ur_type": ur_type_str,
             "mujoco": "true",
             "gravity": gravity_str,
@@ -150,6 +118,13 @@ def create_nodes(context: LaunchContext):
         },
     ).toprettyxml(indent="  ")
 
+    robot_description_str, gripper_base_link = _merge_urdf_documents(
+        ur_description_str,
+        gripper_urdf_filepath,
+        parent_link=gripper_parent_link_str,
+        mount_xyz=gripper_mount_xyz_str,
+        mount_rpy=gripper_mount_rpy_str,
+    )
     robot_description = {"robot_description": robot_description_str}
 
     robot_description_controller_params = os.path.join(
@@ -164,16 +139,10 @@ def create_nodes(context: LaunchContext):
         for line in robot_description_str.splitlines():
             f.write(f"      {line}\n")
 
-    # ----------------------------
-    # Additional MuJoCo scene files
-    # ----------------------------
     additional_files = [
         os.path.join(pkg_mujoco_ros2_control, "mjcf", "scene.xml"),
     ]
 
-    # ----------------------------
-    # Generate MJCF at launch time
-    # ----------------------------
     xacro2mjcf = Node(
         package="mujoco_ros2_control",
         executable="xacro2mjcf.py",
@@ -218,9 +187,6 @@ def create_nodes(context: LaunchContext):
         patched_joints = 0
         patched_motors = 0
         patched_geoms = 0
-        patched_ft_site = False
-        patched_ft_sensors = 0
-        patched_gravcomp_bodies = 0
         joint_summaries = []
 
         for mjcf_file in collect_mjcf_files(mujoco_model_file):
@@ -228,17 +194,6 @@ def create_nodes(context: LaunchContext):
             root = tree.getroot()
             changed = False
             contains_ur_joints = False
-
-            ft_site_added, ft_sensors_added = _append_flange_ft_sensor(root)
-            if ft_site_added:
-                patched_ft_site = True
-                patched_ft_sensors += ft_sensors_added
-                changed = True
-
-            gravcomp_bodies = _apply_ur_gravity_compensation(root, joint_names)
-            if gravcomp_bodies:
-                patched_gravcomp_bodies += gravcomp_bodies
-                changed = True
 
             for joint in root.iter("joint"):
                 if joint.get("name") in joint_names:
@@ -281,18 +236,12 @@ def create_nodes(context: LaunchContext):
                     f"damping={mujoco_joint_damping_str}, "
                     f"frictionloss={mujoco_joint_frictionloss_str}) "
                     f"on {patched_joints} joints and {patched_motors} motors; "
-                    f"disabled contacts on {patched_geoms} robot geoms; "
-                    f"flange F/T site={'added' if patched_ft_site else 'not found'}, "
-                    f"MuJoCo sensors added={patched_ft_sensors}; "
-                    f"UR gravcomp bodies={patched_gravcomp_bodies}."
+                    f"disabled contacts on {patched_geoms} UR geoms."
                 )
             ),
             LogInfo(msg="[1/4] Patched MJCF joints: " + ", ".join(joint_summaries)),
         ]
 
-    # ----------------------------
-    # Robot state publisher
-    # ----------------------------
     robot_state_publisher = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
@@ -302,16 +251,12 @@ def create_nodes(context: LaunchContext):
         output="screen",
     )
 
-    # ----------------------------
-    # MuJoCo ros2_control backend
-    # Pass robot_description directly
-    # ----------------------------
     mujoco = Node(
         package="mujoco_ros2_control",
         executable="mujoco_ros2_control",
         namespace=namespace,
         parameters=[
-            robot_description,  # robot_description passed here
+            robot_description,
             ros2_control_params_file,
             {"simulation_frequency": 500.0},
             {"realtime_factor": 1.0},
@@ -325,34 +270,12 @@ def create_nodes(context: LaunchContext):
         output="both",
     )
 
-    # ----------------------------
-    # Controllers
-    # ----------------------------
     load_joint_state_broadcaster = Node(
         package="controller_manager",
         executable="spawner",
         name="spawner_joint_state_broadcaster",
         arguments=[
             "joint_state_broadcaster",
-            "--controller-manager",
-            "/controller_manager",
-            "--param-file",
-            ros2_control_params_file,
-            "--controller-manager-timeout",
-            "60",
-            "--service-call-timeout",
-            "20",
-        ],
-        parameters=[{"use_sim_time": False}],
-        output="screen",
-    )
-
-    load_force_torque_sensor_broadcaster = Node(
-        package="controller_manager",
-        executable="spawner",
-        name="spawner_force_torque_sensor_broadcaster",
-        arguments=[
-            "force_torque_sensor_broadcaster",
             "--controller-manager",
             "/controller_manager",
             "--param-file",
@@ -374,6 +297,7 @@ def create_nodes(context: LaunchContext):
             "cartesian_impedance_controller",
             "--controller-manager",
             "/controller_manager",
+            "--inactive",
             "--param-file",
             ros2_control_params_file,
             "--param-file",
@@ -407,7 +331,6 @@ def create_nodes(context: LaunchContext):
         output="screen",
     )
 
-    # Optional RViz
     rviz_node = Node(
         condition=IfCondition(rviz),
         package="rviz2",
@@ -418,10 +341,14 @@ def create_nodes(context: LaunchContext):
         parameters=[{"use_sim_time": True}],
     )
 
-    # ----------------------------
-    # Event handlers for proper startup sequence
-    # ----------------------------
     return [
+        LogInfo(
+            msg=(
+                "Attaching vacuum gripper root link "
+                f"'{gripper_base_link}' to UR link '{gripper_parent_link_str}' "
+                f"with xyz='{gripper_mount_xyz_str}' rpy='{gripper_mount_rpy_str}'."
+            )
+        ),
         xacro2mjcf,
         RegisterEventHandler(
             OnProcessExit(
@@ -451,12 +378,32 @@ def create_nodes(context: LaunchContext):
                 target_action=mujoco,
                 on_start=[
                     LogInfo(
-                        msg="[3/5] MuJoCo process started. Starting broadcasters and active cartesian_impedance_controller hold..."
+                        msg="[3/5] MuJoCo process started. Waiting for controller_manager..."
                     ),
-                    load_joint_state_broadcaster,
-                    load_force_torque_sensor_broadcaster,
-                    load_cartesian_impedance_controller,
-                    rviz_node,
+                    TimerAction(
+                        period=2.0,
+                        actions=[
+                            LogInfo(msg="[4/5] Starting joint_state_broadcaster..."),
+                            load_joint_state_broadcaster,
+                        ],
+                    ),
+                ],
+            )
+        ),
+        RegisterEventHandler(
+            OnProcessExit(
+                target_action=load_joint_state_broadcaster,
+                on_exit=[
+                    LogInfo(
+                        msg="[5/6] joint_state_broadcaster finished. Waiting briefly for joint states/TF before starting cartesian_impedance_controller and RViz..."
+                    ),
+                    TimerAction(
+                        period=2.0,
+                        actions=[
+                            load_cartesian_impedance_controller,
+                            rviz_node,
+                        ],
+                    ),
                 ],
             )
         ),
@@ -500,7 +447,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "use_rviz",
-                default_value="false",
+                default_value="true",
                 description="Launch RViz",
             ),
             DeclareLaunchArgument(
@@ -510,7 +457,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "gravity",
-                default_value="0 0 -9.81",
+                default_value="0 0 0",
                 description="MuJoCo gravity vector",
             ),
             DeclareLaunchArgument(
@@ -525,18 +472,33 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "mujoco_joint_damping",
-                default_value="60.0",
+                default_value="1.0",
                 description="MuJoCo passive damping value applied to UR joints.",
             ),
             DeclareLaunchArgument(
                 "mujoco_joint_frictionloss",
-                default_value="20.0",
+                default_value="0.1",
                 description="MuJoCo frictionloss value applied to UR joints.",
             ),
             DeclareLaunchArgument(
                 "use_pose_broadcaster",
                 default_value="true",
-                description="Start the custom CRISP pose_broadcaster (can hang controller_manager in MuJoCo)",
+                description="Start the custom CRISP pose_broadcaster.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_parent_link",
+                default_value="flange",
+                description="UR link used as the fixed parent of the gripper.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_mount_xyz",
+                default_value="0 0 0",
+                description="Fixed transform from UR flange to gripper root link.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_mount_rpy",
+                default_value="0 0 0",
+                description="Fixed transform rotation from UR flange to gripper root link.",
             ),
             OpaqueFunction(function=create_nodes),
         ]

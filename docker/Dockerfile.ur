@@ -40,6 +40,8 @@ RUN apt-get update && \
       wget \
       git \
       unzip \
+      openscad \
+      meshlab \
       python3-pip \
       python3-venv \
       python3-flake8 \
@@ -85,6 +87,8 @@ RUN apt-get update && \
       ros-${ROS_DISTRO}-launch-param-builder && \
     rm -rf /var/lib/apt/lists/*
 
+RUN pip3 install --break-system-packages onshape-to-robot==1.8.2
+
 RUN ln -sf /usr/bin/python3 /usr/bin/python
 
 USER ${USERNAME}
@@ -94,6 +98,8 @@ WORKDIR /home/${USERNAME}/ros2_ws
 # Optional empty build, similar to repo example
 RUN source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build
 RUN echo "source /home/${USERNAME}/ros2_ws/install/setup.bash" >> /home/${USERNAME}/.bashrc
+RUN echo "[ -f /home/${USERNAME}/onshape_keys.sh ] && source /home/${USERNAME}/onshape_keys.sh" >> /home/${USERNAME}/.bashrc
+RUN echo "alias launch_ur_vacuum_gripper='ros2 launch crisp_ur_mujoco ur_vacuum_gripper.launch.py ur_type:=ur30 use_rviz:=True show_gui:=True use_pose_broadcaster:=False'" >> /home/${USERNAME}/.bashrc
 
 FROM base AS ur
 
@@ -135,6 +141,11 @@ COPY . src/crisp_ur_demo
 
 # CRISP controllers
 RUN git clone --branch ${ROS_DISTRO} --depth 1 https://github.com/utiasDSL/crisp_controllers.git src/crisp_controllers
+# Allow higher Cartesian stiffness values for heavier end-effectors in simulation.
+RUN sed -i 's/bounds<>: \[0.0, 5000.0\]/bounds<>: [0.0, 20000.0]/g' \
+  /home/ros/ros2_ws/src/crisp_controllers/src/cartesian_impedance_controller.yaml && \
+  sed -i 's/bounds<>: \[-1.0, 5000.0\]/bounds<>: [-1.0, 20000.0]/g' \
+  /home/ros/ros2_ws/src/crisp_controllers/src/cartesian_impedance_controller.yaml
 # Patch CRISP Cartesian controller to avoid parameter-service deadlock in controller_manager
 COPY --chown=ros:ros /config/cartesian_controller.cpp \
   /home/ros/ros2_ws/src/crisp_controllers/src/cartesian_controller.cpp
@@ -148,8 +159,9 @@ RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
       --from-paths \
         src/mujoco_ros2_control/mujoco_ros2_control \
         src/crisp_controllers \
+        src/crisp_ur_demo/vaacum_gripper_description \
         src/crisp_ur_demo/crisp_ur_mujoco \
       --ignore-src --rosdistro ${ROS_DISTRO} -y && \
     colcon build --symlink-install \
       --cmake-args -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-      --packages-up-to mujoco_ros2_control crisp_controllers crisp_ur_mujoco
+      --packages-up-to mujoco_ros2_control crisp_controllers crisp_ur_mujoco vaacum_gripper_description

@@ -19,8 +19,14 @@ from launch_ros.actions import Node
 import xacro
 
 
+GRIPPER_SPRING_JOINTS = ("spring_flexlink", "spring_flexlink2")
+GRIPPER_NON_COLLIDING_LINKS = ("spring", "spring_2")
 FLANGE_FT_BODY_NAME = "flange"
 FLANGE_FT_SITE_NAME = "flange_ft_site"
+WRIST_CAMERA_BODY_NAME = "tool0"
+WRIST_CAMERA_NAME = "wrist_camera"
+EXTERNAL_CAMERA_BODY_NAME = "external_camera_frame"
+EXTERNAL_CAMERA_NAME = "external_camera"
 UR_GRAVCOMP_BODY_NAMES = {
     "base",
     "base_link",
@@ -67,10 +73,18 @@ def _append_flange_ft_sensor(root):
         sensor.get("name") for sensor in sensor_root if sensor.get("name") is not None
     }
     if "flange_ft_site_force" not in existing_names:
-        ET.SubElement(sensor_root, "force", {"name": "flange_ft_site_force", "site": FLANGE_FT_SITE_NAME})
+        ET.SubElement(
+            sensor_root,
+            "force",
+            {"name": "flange_ft_site_force", "site": FLANGE_FT_SITE_NAME},
+        )
         added_sensors += 1
     if "flange_ft_site_torque" not in existing_names:
-        ET.SubElement(sensor_root, "torque", {"name": "flange_ft_site_torque", "site": FLANGE_FT_SITE_NAME})
+        ET.SubElement(
+            sensor_root,
+            "torque",
+            {"name": "flange_ft_site_torque", "site": FLANGE_FT_SITE_NAME},
+        )
         added_sensors += 1
 
     return True, added_sensors
@@ -92,20 +106,166 @@ def _apply_ur_gravity_compensation(root, joint_names):
     return patched_bodies
 
 
-def create_nodes(context: LaunchContext):
-    import shutil
+def _disable_direct_body_geoms(root, body_names):
+    patched_geoms = 0
+    body_names = set(body_names)
 
+    for body in root.iter("body"):
+        if body.get("name") not in body_names:
+            continue
+
+        for geom in body.findall("geom"):
+            geom.set("contype", "0")
+            geom.set("conaffinity", "0")
+            patched_geoms += 1
+
+    return patched_geoms
+
+
+def _append_camera(parent, name, pos, xyaxes, fovy):
+    for camera in parent.findall("camera"):
+        if camera.get("name") == name:
+            return False
+
+    ET.SubElement(
+        parent,
+        "camera",
+        {
+            "name": name,
+            "mode": "fixed",
+            "pos": pos,
+            "xyaxes": xyaxes,
+            "fovy": fovy,
+        },
+    )
+    return True
+
+
+def _append_mujoco_cameras(
+    root,
+    wrist_camera_pos,
+    wrist_camera_xyaxes,
+    wrist_camera_fovy,
+    include_external_camera=True,
+):
+    added_cameras = 0
+
+    wrist_body = None
+    for body in root.iter("body"):
+        if body.get("name") == WRIST_CAMERA_BODY_NAME:
+            wrist_body = body
+            break
+
+    if wrist_body is not None:
+        if _append_camera(
+            wrist_body,
+            WRIST_CAMERA_NAME,
+            pos=wrist_camera_pos,
+            xyaxes=wrist_camera_xyaxes,
+            fovy=wrist_camera_fovy,
+        ):
+            added_cameras += 1
+
+    worldbody = root.find("worldbody") if include_external_camera else None
+    if worldbody is not None:
+        external_body = None
+        for body in worldbody.findall("body"):
+            if body.get("name") == EXTERNAL_CAMERA_BODY_NAME:
+                external_body = body
+                break
+
+        if external_body is None:
+            external_body = ET.SubElement(
+                worldbody,
+                "body",
+                {
+                    "name": EXTERNAL_CAMERA_BODY_NAME,
+                    "pos": "1.2 -1.4 0.9",
+                },
+            )
+
+        if _append_camera(
+            external_body,
+            EXTERNAL_CAMERA_NAME,
+            pos="0 0 0",
+            xyaxes="1 0 0 0 0 1",
+            fovy="45",
+        ):
+            added_cameras += 1
+
+    return added_cameras
+
+
+def _append_fixed_joint(robot_root, parent_link, child_link, xyz, rpy):
+    joint = ET.Element("joint", {"name": "ur_flange_to_vacuum_gripper", "type": "fixed"})
+    ET.SubElement(joint, "origin", {"xyz": xyz, "rpy": rpy})
+    ET.SubElement(joint, "parent", {"link": parent_link})
+    ET.SubElement(joint, "child", {"link": child_link})
+    robot_root.append(joint)
+
+
+def _root_link_name(robot_root):
+    links = [link.get("name") for link in robot_root.findall("link")]
+    children = {
+        child.get("link")
+        for joint in robot_root.findall("joint")
+        for child in [joint.find("child")]
+        if child is not None
+    }
+    roots = [link for link in links if link not in children]
+    if not roots:
+        raise RuntimeError("Vacuum gripper URDF has no root link.")
+    return roots[0]
+
+
+def _append_gripper_state_interfaces(robot_root):
+    ros2_control = robot_root.find("ros2_control")
+    if ros2_control is None:
+        raise RuntimeError("Combined URDF has no ros2_control block.")
+
+    existing_joints = {
+        joint.get("name")
+        for joint in ros2_control.findall("joint")
+        if joint.get("name") is not None
+    }
+
+    for joint_name in GRIPPER_SPRING_JOINTS:
+        if joint_name in existing_joints:
+            continue
+        joint = ET.SubElement(ros2_control, "joint", {"name": joint_name})
+        ET.SubElement(joint, "state_interface", {"name": "position"})
+        ET.SubElement(joint, "state_interface", {"name": "velocity"})
+
+
+def _merge_urdf_documents(ur_xml, gripper_urdf_path, parent_link, mount_xyz, mount_rpy):
+    ur_root = ET.fromstring(ur_xml)
+    gripper_root = ET.parse(gripper_urdf_path).getroot()
+    gripper_base_link = _root_link_name(gripper_root)
+
+    for element in list(gripper_root):
+        ur_root.append(element)
+
+    _append_fixed_joint(
+        ur_root,
+        parent_link=parent_link,
+        child_link=gripper_base_link,
+        xyz=mount_xyz,
+        rpy=mount_rpy,
+    )
+
+    _append_gripper_state_interfaces(ur_root)
+
+    return ET.tostring(ur_root, encoding="unicode"), gripper_base_link
+
+
+def create_nodes(context: LaunchContext):
     namespace = ""
 
-    # Create mujoco directory
     mujoco_model_path = "/tmp/mujoco"
     if os.path.exists(mujoco_model_path):
         shutil.rmtree(mujoco_model_path)
     os.makedirs(mujoco_model_path, exist_ok=True)
 
-    # ----------------------------
-    # Launch arguments
-    # ----------------------------
     ur_type = LaunchConfiguration("ur_type")
     rviz = LaunchConfiguration("use_rviz")
     show_gui = LaunchConfiguration("show_gui")
@@ -115,6 +275,16 @@ def create_nodes(context: LaunchContext):
     mujoco_joint_armature = LaunchConfiguration("mujoco_joint_armature")
     mujoco_joint_damping = LaunchConfiguration("mujoco_joint_damping")
     mujoco_joint_frictionloss = LaunchConfiguration("mujoco_joint_frictionloss")
+    gripper_parent_link = LaunchConfiguration("gripper_parent_link")
+    gripper_mount_xyz = LaunchConfiguration("gripper_mount_xyz")
+    gripper_mount_rpy = LaunchConfiguration("gripper_mount_rpy")
+    gripper_spring_stiffness = LaunchConfiguration("gripper_spring_stiffness")
+    gripper_spring_damping = LaunchConfiguration("gripper_spring_damping")
+    gripper_spring_frictionloss = LaunchConfiguration("gripper_spring_frictionloss")
+    gripper_springref = LaunchConfiguration("gripper_springref")
+    wrist_camera_pos = LaunchConfiguration("wrist_camera_pos")
+    wrist_camera_xyaxes = LaunchConfiguration("wrist_camera_xyaxes")
+    wrist_camera_fovy = LaunchConfiguration("wrist_camera_fovy")
 
     ur_type_str = context.perform_substitution(ur_type)
     gravity_str = context.perform_substitution(gravity)
@@ -122,27 +292,40 @@ def create_nodes(context: LaunchContext):
     mujoco_joint_armature_str = context.perform_substitution(mujoco_joint_armature)
     mujoco_joint_damping_str = context.perform_substitution(mujoco_joint_damping)
     mujoco_joint_frictionloss_str = context.perform_substitution(mujoco_joint_frictionloss)
+    gripper_parent_link_str = context.perform_substitution(gripper_parent_link)
+    gripper_mount_xyz_str = context.perform_substitution(gripper_mount_xyz)
+    gripper_mount_rpy_str = context.perform_substitution(gripper_mount_rpy)
+    gripper_spring_stiffness_str = context.perform_substitution(
+        gripper_spring_stiffness
+    )
+    gripper_spring_damping_str = context.perform_substitution(gripper_spring_damping)
+    gripper_spring_frictionloss_str = context.perform_substitution(
+        gripper_spring_frictionloss
+    )
+    gripper_springref_str = context.perform_substitution(gripper_springref)
+    wrist_camera_pos_str = context.perform_substitution(wrist_camera_pos)
+    wrist_camera_xyaxes_str = context.perform_substitution(wrist_camera_xyaxes)
+    wrist_camera_fovy_str = context.perform_substitution(wrist_camera_fovy)
 
-    # ----------------------------
-    # Paths
-    # ----------------------------
     mujoco_model_file = os.path.join(mujoco_model_path, "main.xml")
 
     pkg_mujoco = get_package_share_directory("crisp_ur_mujoco")
     pkg_mujoco_ros2_control = get_package_share_directory("mujoco_ros2_control")
+    pkg_gripper = get_package_share_directory("vaacum_gripper_description")
 
     ur_xacro_filepath = os.path.join(pkg_mujoco, "urdf", "ur.urdf_mujoco.xacro")
+    gripper_urdf_filepath = os.path.join(
+        pkg_gripper, "vacuum_gripper", "vacuum_gripper.urdf"
+    )
     ros2_control_params_file = os.path.join(
         pkg_mujoco, "config", "controllers_mujoco.yaml"
     )
     rviz_config_file = os.path.join(pkg_mujoco, "config", "rviz_view.rviz")
-    # ----------------------------
-    # Build robot_description
-    # ----------------------------
-    robot_description_str = xacro.process_file(
+
+    ur_description_str = xacro.process_file(
         ur_xacro_filepath,
         mappings={
-            "name": "ur",
+            "name": "ur_vacuum_gripper",
             "ur_type": ur_type_str,
             "mujoco": "true",
             "gravity": gravity_str,
@@ -150,6 +333,13 @@ def create_nodes(context: LaunchContext):
         },
     ).toprettyxml(indent="  ")
 
+    robot_description_str, gripper_base_link = _merge_urdf_documents(
+        ur_description_str,
+        gripper_urdf_filepath,
+        parent_link=gripper_parent_link_str,
+        mount_xyz=gripper_mount_xyz_str,
+        mount_rpy=gripper_mount_rpy_str,
+    )
     robot_description = {"robot_description": robot_description_str}
 
     robot_description_controller_params = os.path.join(
@@ -164,16 +354,10 @@ def create_nodes(context: LaunchContext):
         for line in robot_description_str.splitlines():
             f.write(f"      {line}\n")
 
-    # ----------------------------
-    # Additional MuJoCo scene files
-    # ----------------------------
     additional_files = [
         os.path.join(pkg_mujoco_ros2_control, "mjcf", "scene.xml"),
     ]
 
-    # ----------------------------
-    # Generate MJCF at launch time
-    # ----------------------------
     xacro2mjcf = Node(
         package="mujoco_ros2_control",
         executable="xacro2mjcf.py",
@@ -187,7 +371,7 @@ def create_nodes(context: LaunchContext):
     )
 
     def patch_mjcf_model(_context: LaunchContext):
-        joint_names = {
+        ur_joint_names = {
             "shoulder_pan_joint",
             "shoulder_lift_joint",
             "elbow_joint",
@@ -195,6 +379,7 @@ def create_nodes(context: LaunchContext):
             "wrist_2_joint",
             "wrist_3_joint",
         }
+        gripper_spring_joint_names = set(GRIPPER_SPRING_JOINTS)
 
         def collect_mjcf_files(path: str, visited: set[str] | None = None):
             if visited is None:
@@ -221,6 +406,9 @@ def create_nodes(context: LaunchContext):
         patched_ft_site = False
         patched_ft_sensors = 0
         patched_gravcomp_bodies = 0
+        patched_gripper_spring_geoms = 0
+        patched_cameras = 0
+        external_camera_added = False
         joint_summaries = []
 
         for mjcf_file in collect_mjcf_files(mujoco_model_file):
@@ -229,19 +417,41 @@ def create_nodes(context: LaunchContext):
             changed = False
             contains_ur_joints = False
 
+            added_cameras = _append_mujoco_cameras(
+                root,
+                wrist_camera_pos=wrist_camera_pos_str,
+                wrist_camera_xyaxes=wrist_camera_xyaxes_str,
+                wrist_camera_fovy=wrist_camera_fovy_str,
+                include_external_camera=not external_camera_added,
+            )
+            if added_cameras:
+                patched_cameras += added_cameras
+                external_camera_added = any(
+                    camera.get("name") == EXTERNAL_CAMERA_NAME
+                    for camera in root.iter("camera")
+                )
+                changed = True
+
             ft_site_added, ft_sensors_added = _append_flange_ft_sensor(root)
             if ft_site_added:
                 patched_ft_site = True
                 patched_ft_sensors += ft_sensors_added
                 changed = True
 
-            gravcomp_bodies = _apply_ur_gravity_compensation(root, joint_names)
+            gravcomp_bodies = _apply_ur_gravity_compensation(root, ur_joint_names)
             if gravcomp_bodies:
                 patched_gravcomp_bodies += gravcomp_bodies
                 changed = True
 
+            spring_geoms = _disable_direct_body_geoms(
+                root, GRIPPER_NON_COLLIDING_LINKS
+            )
+            if spring_geoms:
+                patched_gripper_spring_geoms += spring_geoms
+                changed = True
+
             for joint in root.iter("joint"):
-                if joint.get("name") in joint_names:
+                if joint.get("name") in ur_joint_names:
                     contains_ur_joints = True
                     joint.set("armature", mujoco_joint_armature_str)
                     joint.set("damping", mujoco_joint_damping_str)
@@ -251,9 +461,19 @@ def create_nodes(context: LaunchContext):
                     joint_summaries.append(
                         f"{joint.get('name')}: axis={joint.get('axis')}"
                     )
+                elif joint.get("name") in gripper_spring_joint_names:
+                    joint.set("stiffness", gripper_spring_stiffness_str)
+                    joint.set("damping", gripper_spring_damping_str)
+                    joint.set("frictionloss", gripper_spring_frictionloss_str)
+                    joint.set("springref", gripper_springref_str)
+                    patched_joints += 1
+                    changed = True
+                    joint_summaries.append(
+                        f"{joint.get('name')}: passive spring axis={joint.get('axis')}"
+                    )
 
             for motor in root.iter("motor"):
-                if motor.get("joint") in joint_names:
+                if motor.get("joint") in ur_joint_names:
                     limit = motor.get("forcerange") or motor.get("ctrlrange")
                     if limit:
                         motor.set("ctrlrange", limit)
@@ -281,18 +501,27 @@ def create_nodes(context: LaunchContext):
                     f"damping={mujoco_joint_damping_str}, "
                     f"frictionloss={mujoco_joint_frictionloss_str}) "
                     f"on {patched_joints} joints and {patched_motors} motors; "
-                    f"disabled contacts on {patched_geoms} robot geoms; "
+                    f"disabled contacts on {patched_geoms} UR geoms; "
                     f"flange F/T site={'added' if patched_ft_site else 'not found'}, "
                     f"MuJoCo sensors added={patched_ft_sensors}; "
-                    f"UR gravcomp bodies={patched_gravcomp_bodies}."
+                    f"UR gravcomp bodies={patched_gravcomp_bodies}; "
+                    f"disabled spring collision geoms={patched_gripper_spring_geoms}; "
+                    f"cameras added={patched_cameras}."
+                )
+            ),
+            LogInfo(
+                msg=(
+                    "[1/4] Passive gripper springs "
+                    f"({', '.join(GRIPPER_SPRING_JOINTS)}) configured with "
+                    f"stiffness={gripper_spring_stiffness_str}, "
+                    f"damping={gripper_spring_damping_str}, "
+                    f"frictionloss={gripper_spring_frictionloss_str}, "
+                    f"springref={gripper_springref_str}."
                 )
             ),
             LogInfo(msg="[1/4] Patched MJCF joints: " + ", ".join(joint_summaries)),
         ]
 
-    # ----------------------------
-    # Robot state publisher
-    # ----------------------------
     robot_state_publisher = Node(
         package="robot_state_publisher",
         executable="robot_state_publisher",
@@ -302,16 +531,12 @@ def create_nodes(context: LaunchContext):
         output="screen",
     )
 
-    # ----------------------------
-    # MuJoCo ros2_control backend
-    # Pass robot_description directly
-    # ----------------------------
     mujoco = Node(
         package="mujoco_ros2_control",
         executable="mujoco_ros2_control",
         namespace=namespace,
         parameters=[
-            robot_description,  # robot_description passed here
+            robot_description,
             ros2_control_params_file,
             {"simulation_frequency": 500.0},
             {"realtime_factor": 1.0},
@@ -325,9 +550,6 @@ def create_nodes(context: LaunchContext):
         output="both",
     )
 
-    # ----------------------------
-    # Controllers
-    # ----------------------------
     load_joint_state_broadcaster = Node(
         package="controller_manager",
         executable="spawner",
@@ -407,7 +629,6 @@ def create_nodes(context: LaunchContext):
         output="screen",
     )
 
-    # Optional RViz
     rviz_node = Node(
         condition=IfCondition(rviz),
         package="rviz2",
@@ -418,10 +639,14 @@ def create_nodes(context: LaunchContext):
         parameters=[{"use_sim_time": True}],
     )
 
-    # ----------------------------
-    # Event handlers for proper startup sequence
-    # ----------------------------
     return [
+        LogInfo(
+            msg=(
+                "Attaching vacuum gripper root link "
+                f"'{gripper_base_link}' to UR link '{gripper_parent_link_str}' "
+                f"with xyz='{gripper_mount_xyz_str}' rpy='{gripper_mount_rpy_str}'."
+            )
+        ),
         xacro2mjcf,
         RegisterEventHandler(
             OnProcessExit(
@@ -477,7 +702,7 @@ def create_nodes(context: LaunchContext):
 def generate_launch_description():
     pkg_mujoco = get_package_share_directory("crisp_ur_mujoco")
     initial_positions_file_default = os.path.join(
-        pkg_mujoco, "config", "initial_positions.yaml"
+        pkg_mujoco, "config", "initial_positions_ur_vacuum_gripper.yaml"
     )
 
     return LaunchDescription(
@@ -500,7 +725,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "use_rviz",
-                default_value="false",
+                default_value="true",
                 description="Launch RViz",
             ),
             DeclareLaunchArgument(
@@ -536,7 +761,57 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "use_pose_broadcaster",
                 default_value="true",
-                description="Start the custom CRISP pose_broadcaster (can hang controller_manager in MuJoCo)",
+                description="Start the custom CRISP pose_broadcaster.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_parent_link",
+                default_value="flange",
+                description="UR link used as the fixed parent of the gripper.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_mount_xyz",
+                default_value="0 0 0",
+                description="Fixed transform from UR flange to gripper root link.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_mount_rpy",
+                default_value="0 -1.5708 0",
+                description="Fixed transform rotation from UR flange to gripper root link.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_spring_stiffness",
+                default_value="1070.0",
+                description="Passive MuJoCo stiffness for the gripper prismatic spring joints.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_spring_damping",
+                default_value="20.0",
+                description="Passive MuJoCo damping for the gripper prismatic spring joints.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_spring_frictionloss",
+                default_value="0.0",
+                description="Passive MuJoCo frictionloss for the gripper prismatic spring joints.",
+            ),
+            DeclareLaunchArgument(
+                "gripper_springref",
+                default_value="0.0",
+                description="Passive MuJoCo spring reference position for the gripper prismatic joints.",
+            ),
+            DeclareLaunchArgument(
+                "wrist_camera_pos",
+                default_value="0.08 0 0.06",
+                description="Position of the wrist camera in the tool0 frame.",
+            ),
+            DeclareLaunchArgument(
+                "wrist_camera_xyaxes",
+                default_value="1 0 0 0 -1 0",
+                description="MuJoCo xyaxes orientation of the wrist camera in the tool0 frame.",
+            ),
+            DeclareLaunchArgument(
+                "wrist_camera_fovy",
+                default_value="75",
+                description="Vertical field of view of the wrist camera in degrees.",
             ),
             OpaqueFunction(function=create_nodes),
         ]

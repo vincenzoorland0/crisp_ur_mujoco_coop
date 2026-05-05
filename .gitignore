@@ -25,3 +25,5 @@ crisp_controllers/
 
 # Environment
 .env
+src/onshape_keys.txt
+src/onshape_keys.sh

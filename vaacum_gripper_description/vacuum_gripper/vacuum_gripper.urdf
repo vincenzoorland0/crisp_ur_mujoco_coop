@@ -1,0 +1,445 @@
+<?xml version="1.0" ?>
+<!-- Generated using onshape-to-robot -->
+<!-- Onshape document_id: 4b207e6831627653b3a849ee -->
+<robot name="vacuum_gripper">
+  <!-- Link flangeadapter -->
+  <link name="flangeadapter">
+    <inertial>
+      <origin xyz="3.24835e-05 0.00023746 -0.00690755" rpy="0 0 0"/>
+      <mass value="0.2565"/>
+      <inertia ixx="0.000152523" ixy="1.4611e-07" ixz="7.1592e-08" iyy="0.000154316" iyz="2.01529e-07" izz="0.000293307"/>
+    </inertial>
+    <!-- Part flangeadapter -->
+    <visual>
+      <origin xyz="-0 0.000379203 0" rpy="1.5708 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/flangeadapter.stl"/>
+      </geometry>
+      <material name="flangeadapter_material">
+        <color rgba="0.231373 0.380392 0.705882 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0 0.000379203 0" rpy="1.5708 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/flangeadapter.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link robotprofileconnector -->
+  <link name="robotprofileconnector">
+    <inertial>
+      <origin xyz="-0.000217881 0.0248687 -0.0061243" rpy="0 0 0"/>
+      <mass value="0.104326"/>
+      <inertia ixx="3.13544e-05" ixy="8.77639e-07" ixz="2.2962e-08" iyy="3.16219e-05" iyz="-3.6649e-08" izz="5.95628e-05"/>
+    </inertial>
+    <!-- Part robotprofileconnector -->
+    <visual>
+      <origin xyz="-0 0.025 -0" rpy="1.5708 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/robotprofileconnector.stl"/>
+      </geometry>
+      <material name="robotprofileconnector_material">
+        <color rgba="0.972549 0.529412 0.00392157 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0 0.025 -0" rpy="1.5708 -0 -1.5708"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/robotprofileconnector.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link robotprofileconnector2 -->
+  <link name="robotprofileconnector2">
+    <inertial>
+      <origin xyz="-7.00286e-05 -0.00647985 0.0319523" rpy="0 0 0"/>
+      <mass value="0.172365"/>
+      <inertia ixx="7.74249e-05" ixy="9.8444e-08" ixz="-2.67099e-07" iyy="0.000145439" iyz="-3.5652e-08" izz="7.67889e-05"/>
+    </inertial>
+    <!-- Part robotprofileconnector2 -->
+    <visual>
+      <origin xyz="-0 -0.008 0.0319268" rpy="-3.14159 1.22173 3.14159"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/robotprofileconnector2.stl"/>
+      </geometry>
+      <material name="robotprofileconnector2_material">
+        <color rgba="0.498039 0.498039 0.498039 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0 -0.008 0.0319268" rpy="-3.14159 1.22173 3.14159"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/robotprofileconnector2.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link aluprofile -->
+  <link name="aluprofile">
+    <inertial>
+      <origin xyz="0 -0 -0.0172184" rpy="0 0 0"/>
+      <mass value="1.97459"/>
+      <inertia ixx="0.164918" ixy="0" ixz="-0" iyy="0.000675187" iyz="0" izz="0.164855"/>
+    </inertial>
+    <!-- Part aluprofile -->
+    <visual>
+      <origin xyz="-0 -0.05 -0.0143" rpy="-3.14159 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/aluprofile.stl"/>
+      </geometry>
+      <material name="aluprofile_material">
+        <color rgba="0.498039 0.498039 0.498039 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0 -0.05 -0.0143" rpy="-3.14159 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/aluprofile.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link profilespringconnector -->
+  <link name="profilespringconnector">
+    <inertial>
+      <origin xyz="0.00949356 0.0210946 0.0227285" rpy="0 0 0"/>
+      <mass value="0.199581"/>
+      <inertia ixx="0.000198297" ixy="-2.00512e-05" ixz="0.000116046" iyy="0.000366965" iyz="1.81775e-05" izz="0.000272733"/>
+    </inertial>
+    <!-- Part profilespringconnector -->
+    <visual>
+      <origin xyz="-0.0326322 -0.0037366 -0.003" rpy="1.5708 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/profilespringconnector.stl"/>
+      </geometry>
+      <material name="profilespringconnector_material">
+        <color rgba="0.647059 0.647059 0.647059 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0326322 -0.0037366 -0.003" rpy="1.5708 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/profilespringconnector.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link spring -->
+  <link name="spring">
+    <inertial>
+      <origin xyz="-4.625e-09 0.000136185 -0.0334185" rpy="0 0 0"/>
+      <mass value="0.53"/>
+      <inertia ixx="0.00156996" ixy="-3.1e-11" ixz="7.9e-11" iyy="0.00157086" iyz="3.56582e-06" izz="6.42262e-05"/>
+    </inertial>
+    <!-- Part spring -->
+    <visual>
+      <origin xyz="0 0 -0.0808" rpy="1.5708 -0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/spring.stl"/>
+      </geometry>
+      <material name="spring_material">
+        <color rgba="0.796078 0.823529 0.937255 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.0808" rpy="1.5708 -0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/spring.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link springcupconnector -->
+  <link name="springcupconnector">
+    <inertial>
+      <origin xyz="0 0 -0.0233584" rpy="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="1.95772e-05" ixy="0" ixz="0" iyy="1.95772e-05" iyz="-0" izz="9.18247e-06"/>
+    </inertial>
+    <!-- Part springcupconnector -->
+    <visual>
+      <origin xyz="0 0 -0.046338" rpy="0 -0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/springcupconnector.stl"/>
+      </geometry>
+      <material name="springcupconnector_material">
+        <color rgba="0.231373 0.380392 0.705882 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.046338" rpy="0 -0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/springcupconnector.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link suctioncup -->
+  <link name="suctioncup">
+    <inertial>
+      <origin xyz="-0.000144558 -0.000385092 0.0104585" rpy="0 0 0"/>
+      <mass value="0.387"/>
+      <inertia ixx="0.000462282" ixy="-1.0112e-06" ixz="-4.41492e-07" iyy="0.000459997" iyz="-9.96771e-07" izz="0.000893032"/>
+    </inertial>
+    <!-- Part 1 -->
+    <visual>
+      <origin xyz="-0 -0 0" rpy="-3.14159 0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1.stl"/>
+      </geometry>
+      <material name="1_material">
+        <color rgba="0.980392 0.713725 0.00392157 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0 -0 0" rpy="-3.14159 0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1.stl"/>
+      </geometry>
+    </collision>
+    <!-- Part 1_2 -->
+    <visual>
+      <origin xyz="-0 0 0" rpy="-3.14159 -0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1__2.stl"/>
+      </geometry>
+      <material name="1_2_material">
+        <color rgba="0.231373 0.380392 0.705882 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0 0 0" rpy="-3.14159 -0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1__2.stl"/>
+      </geometry>
+    </collision>
+    <!-- Part 1_3 -->
+    <visual>
+      <origin xyz="0.000171696 0.000249668 -0.0002" rpy="-3.14159 0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1__3.stl"/>
+      </geometry>
+      <material name="1_3_material">
+        <color rgba="0.615686 0.811765 0.929412 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.000171696 0.000249668 -0.0002" rpy="-3.14159 0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1__3.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from springcupconnector to suctioncup -->
+  <joint name="flexlink_cup" type="fixed">
+    <origin xyz="0 0 -0.032338" rpy="3.14159 -0 -0"/>
+    <parent link="springcupconnector"/>
+    <child link="suctioncup"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+  <!-- Joint from spring to springcupconnector -->
+  <joint name="spring_flexlink" type="prismatic">
+    <origin xyz="0 0 -0.137905" rpy="0 -0 0"/>
+    <parent link="spring"/>
+    <child link="springcupconnector"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="0" upper="0.075"/>
+  </joint>
+  <!-- Joint from profilespringconnector to spring -->
+  <joint name="springconnector_spring" type="fixed">
+    <origin xyz="0.0543678 0.0227634 -0.003" rpy="-0 -0 0"/>
+    <parent link="profilespringconnector"/>
+    <child link="spring"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+  <!-- Joint from aluprofile to profilespringconnector -->
+  <joint name="profile_springconnector" type="fixed">
+    <origin xyz="-0.002 -0.5 -0.0343" rpy="0 0 0"/>
+    <parent link="aluprofile"/>
+    <child link="profilespringconnector"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+  <!-- Link profilespringconnector_2 -->
+  <link name="profilespringconnector_2">
+    <inertial>
+      <origin xyz="0.00749356 -0.0244322 0.0227285" rpy="0 0 0"/>
+      <mass value="0.199581"/>
+      <inertia ixx="0.000198297" ixy="-2.00512e-05" ixz="0.000116046" iyy="0.000366965" iyz="1.81775e-05" izz="0.000272733"/>
+    </inertial>
+    <!-- Part profilespringconnector_2 -->
+    <visual>
+      <origin xyz="-0.0346322 -0.0492634 -0.003" rpy="1.5708 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/profilespringconnector.stl"/>
+      </geometry>
+      <material name="profilespringconnector_2_material">
+        <color rgba="0.647059 0.647059 0.647059 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0.0346322 -0.0492634 -0.003" rpy="1.5708 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/profilespringconnector.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link spring_2 -->
+  <link name="spring_2">
+    <inertial>
+      <origin xyz="-4.625e-09 0.000136185 -0.0334185" rpy="0 0 0"/>
+      <mass value="0.53"/>
+      <inertia ixx="0.00156996" ixy="-3.1e-11" ixz="7.9e-11" iyy="0.00157086" iyz="3.56582e-06" izz="6.42262e-05"/>
+    </inertial>
+    <!-- Part spring_2 -->
+    <visual>
+      <origin xyz="0 -0 -0.0808" rpy="1.5708 -0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/spring.stl"/>
+      </geometry>
+      <material name="spring_2_material">
+        <color rgba="0.796078 0.823529 0.937255 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -0 -0.0808" rpy="1.5708 -0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/spring.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link springcupconnector_2 -->
+  <link name="springcupconnector_2">
+    <inertial>
+      <origin xyz="-0 0 -0.0233584" rpy="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="1.95772e-05" ixy="-0" ixz="-0" iyy="1.95772e-05" iyz="0" izz="9.18247e-06"/>
+    </inertial>
+    <!-- Part springcupconnector_2 -->
+    <visual>
+      <origin xyz="-0 0 -0.046338" rpy="0 -0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/springcupconnector.stl"/>
+      </geometry>
+      <material name="springcupconnector_2_material">
+        <color rgba="0.231373 0.380392 0.705882 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="-0 0 -0.046338" rpy="0 -0 -0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/springcupconnector.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Link suctioncup_2 -->
+  <link name="suctioncup_2">
+    <inertial>
+      <origin xyz="-0.000144558 -0.000385092 0.0104585" rpy="0 0 0"/>
+      <mass value="0.387"/>
+      <inertia ixx="0.000462282" ixy="-1.0112e-06" ixz="-4.41492e-07" iyy="0.000459997" iyz="-9.96771e-07" izz="0.000893032"/>
+    </inertial>
+    <!-- Part 1_4 -->
+    <visual>
+      <origin xyz="0 -0 -0" rpy="3.14159 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1.stl"/>
+      </geometry>
+      <material name="1_4_material">
+        <color rgba="0.980392 0.713725 0.00392157 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 -0 -0" rpy="3.14159 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1.stl"/>
+      </geometry>
+    </collision>
+    <!-- Part 1_5 -->
+    <visual>
+      <origin xyz="0 0 0" rpy="3.14159 -0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1__2.stl"/>
+      </geometry>
+      <material name="1_5_material">
+        <color rgba="0.231373 0.380392 0.705882 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="3.14159 -0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1__2.stl"/>
+      </geometry>
+    </collision>
+    <!-- Part 1_6 -->
+    <visual>
+      <origin xyz="0.000171696 0.000249668 -0.0002" rpy="3.14159 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1__3.stl"/>
+      </geometry>
+      <material name="1_6_material">
+        <color rgba="0.615686 0.811765 0.929412 1"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0.000171696 0.000249668 -0.0002" rpy="3.14159 0 0"/>
+      <geometry>
+        <mesh filename="package://vaacum_gripper_description/assets/1__3.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <!-- Joint from springcupconnector_2 to suctioncup_2 -->
+  <joint name="flexlink_cup2" type="fixed">
+    <origin xyz="-0 0 -0.032338" rpy="3.14159 0 0"/>
+    <parent link="springcupconnector_2"/>
+    <child link="suctioncup_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+  <!-- Joint from spring_2 to springcupconnector_2 -->
+  <joint name="spring_flexlink2" type="prismatic">
+    <origin xyz="0 -0 -0.137905" rpy="-0 -0 -0"/>
+    <parent link="spring_2"/>
+    <child link="springcupconnector_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10" lower="0" upper="0.075"/>
+  </joint>
+  <!-- Joint from profilespringconnector_2 to spring_2 -->
+  <joint name="srpingconnector_spring2" type="fixed">
+    <origin xyz="0.0523678 -0.0227634 -0.003" rpy="0 -0 0"/>
+    <parent link="profilespringconnector_2"/>
+    <child link="spring_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+  <!-- Joint from aluprofile to profilespringconnector_2 -->
+  <joint name="profile_springconnector2" type="fixed">
+    <origin xyz="0 0.5 -0.0343" rpy="0 0 0"/>
+    <parent link="aluprofile"/>
+    <child link="profilespringconnector_2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+  <!-- Joint from robotprofileconnector2 to aluprofile -->
+  <joint name="connector2_profile" type="fixed">
+    <origin xyz="-0.00358141 -0.018135 0.0591926" rpy="1.5708 1.22173 3.14159"/>
+    <parent link="robotprofileconnector2"/>
+    <child link="aluprofile"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+  <!-- Joint from robotprofileconnector to robotprofileconnector2 -->
+  <joint name="connector_connector2" type="fixed">
+    <origin xyz="0.027869 0.0379955 -0.005" rpy="1.5708 -0 -1.13446"/>
+    <parent link="robotprofileconnector"/>
+    <child link="robotprofileconnector2"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+  <!-- Joint from flangeadapter to robotprofileconnector -->
+  <joint name="flange_connector" type="fixed">
+    <origin xyz="-0.025 0.000379203 -0.0185" rpy="0 -0 -1.5708"/>
+    <parent link="flangeadapter"/>
+    <child link="robotprofileconnector"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" velocity="10"/>
+  </joint>
+</robot>

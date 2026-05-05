@@ -330,10 +330,17 @@ CallbackReturn CartesianController::on_configure(
   multiple_publishers_detected_ = false;
   max_allowed_publishers_ = 1;
 
+  const auto target_pose_topic = get_node()->declare_parameter<std::string>(
+      "target_pose_topic", "target_pose");
+  const auto target_joint_topic = get_node()->declare_parameter<std::string>(
+      "target_joint_topic", "target_joint");
+  const auto target_wrench_topic = get_node()->declare_parameter<std::string>(
+      "target_wrench_topic", "target_wrench");
+
   auto target_pose_callback =
-    [this](const std::shared_ptr<geometry_msgs::msg::PoseStamped> msg) -> void
+    [this, target_pose_topic](const std::shared_ptr<geometry_msgs::msg::PoseStamped> msg) -> void
   {
-    if (!check_topic_publisher_count("target_pose")) {
+    if (!check_topic_publisher_count(target_pose_topic)) {
       RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 1000,
                            "Ignoring target_pose message due to multiple publishers detected!");
       return;
@@ -343,9 +350,9 @@ CallbackReturn CartesianController::on_configure(
   };
 
   auto target_joint_callback =
-    [this](const std::shared_ptr<sensor_msgs::msg::JointState> msg) -> void
+    [this, target_joint_topic](const std::shared_ptr<sensor_msgs::msg::JointState> msg) -> void
   {
-    if (!check_topic_publisher_count("target_joint")) {
+    if (!check_topic_publisher_count(target_joint_topic)) {
       RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 1000,
                            "Ignoring target_joint message due to multiple publishers detected!");
       return;
@@ -355,9 +362,9 @@ CallbackReturn CartesianController::on_configure(
   };
 
   auto target_wrench_callback =
-    [this](const std::shared_ptr<geometry_msgs::msg::WrenchStamped> msg) -> void
+    [this, target_wrench_topic](const std::shared_ptr<geometry_msgs::msg::WrenchStamped> msg) -> void
   {
-    if (!check_topic_publisher_count("target_wrench")) {
+    if (!check_topic_publisher_count(target_wrench_topic)) {
       RCLCPP_WARN_THROTTLE(get_node()->get_logger(), *get_node()->get_clock(), 1000,
                            "Ignoring target_wrench message due to multiple publishers detected!");
       return;
@@ -367,13 +374,13 @@ CallbackReturn CartesianController::on_configure(
   };
 
   pose_sub_ = get_node()->create_subscription<geometry_msgs::msg::PoseStamped>(
-      "target_pose", rclcpp::QoS(1),target_pose_callback);
+      target_pose_topic, rclcpp::QoS(1),target_pose_callback);
 
   joint_sub_ = get_node()->create_subscription<sensor_msgs::msg::JointState>(
-      "target_joint", rclcpp::QoS(1), target_joint_callback);
+      target_joint_topic, rclcpp::QoS(1), target_joint_callback);
 
   wrench_sub_ = get_node()->create_subscription<geometry_msgs::msg::WrenchStamped>(
-      "target_wrench", rclcpp::QoS(1), target_wrench_callback);
+      target_wrench_topic, rclcpp::QoS(1), target_wrench_callback);
 
   // Initialize all control vectors with appropriate dimensions
   tau_task = Eigen::VectorXd::Zero(model_.nv);

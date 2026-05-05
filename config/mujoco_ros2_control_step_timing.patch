@@ -23,7 +23,7 @@
    mujoco_start_time_ = mujoco_data_->time;
  
    clock_gettime(CLOCK_MONOTONIC, &startTime_);
-@@ -164,6 +164,10 @@ void MujocoRos2Control::update() {
+@@ -171,6 +171,10 @@ void MujocoRos2Control::update() {
        publish_sim_time();
        rclcpp::Time sim_time_ros = rclcpp::Time((int64_t) (mujoco_data_->time * 1e+9), RCL_ROS_TIME);
        rclcpp::Duration sim_period = sim_time_ros - last_update_sim_time_ros_;
@@ -34,7 +34,7 @@
  
        // check if we should update the controllers
        if (sim_period >= control_period_) {
-@@ -178,8 +181,8 @@ void MujocoRos2Control::update() {
+@@ -185,8 +189,8 @@ void MujocoRos2Control::update() {
          controller_manager_->write(sim_time_ros, sim_period);
        }
  
@@ -43,5 +43,5 @@
 +      // Finish the MuJoCo step using the commands written above.
 +      mj_step2(mujoco_model_, mujoco_data_);
  
-       // save data for rendering
-       std::unique_lock<std::mutex> guard(mjdata_mtx_, std::try_to_lock);
+       // Snapshot data for rendering under libsimulate's own mutex. This is
+       // contended only with sim->Sync() (cheap), not with the slow GL Render(),

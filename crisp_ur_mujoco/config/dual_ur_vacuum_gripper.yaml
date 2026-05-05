@@ -1,0 +1,14 @@
+layout:
+  # Robots are placed on the Y axis at +/- distance / 2.
+  distance: 1.0
+  height: 0.0
+  # Rotation of both bases around the connection line between them.
+  # Since the connection line is the Y axis, this is a pitch angle in radians.
+  base_connection_axis_rotation: 0.0
+
+robots:
+  left:
+    prefix: left_
+  right:
+    prefix: right_
+

@@ -22,6 +22,7 @@ x-base: &base
     - /dev:/dev
     - /usr/bin/docker:/usr/bin/docker
     - /var/run/docker.sock:/var/run/docker.sock
+    - ./src/onshape_keys.sh:/home/ros/onshape_keys.sh:ro
   device_cgroup_rules:
     - 'c 81:* rmw'
     - 'c 189:* rmw'
@@ -37,6 +38,8 @@ x-base: &base
     SHELL: /bin/bash
     RMW: fastdds
     FASTDDS_BUILTIN_TRANSPORTS: UDPv4
+    BASH_ENV: /home/ros/onshape_keys.sh
+    ONSHAPE_KEYS_FILE: /home/ros/onshape_keys.sh
 
   ulimits:
     rtprio: 99
@@ -94,3 +97,55 @@ services:
       RMW=${RMW:-} source src/crisp_ur_demo/scripts/setup_middleware.sh &&
       ros2 launch crisp_ur_mujoco ur_mujoco.launch.py
       ur_type:=ur30 use_rviz:=True show_gui:=True use_pose_broadcaster:=False"
+
+  launch_vacuum_gripper:
+    <<: *ur-overlay
+    volumes:
+      - $HOME/.Xauthority:/home/ros/.Xauthority:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev:/dev
+      - /usr/bin/docker:/usr/bin/docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./src/onshape_keys.sh:/home/ros/onshape_keys.sh:ro
+      - .:/home/ros/ros2_ws/src/crisp_ur_demo:rw
+    command: >
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
+      colcon build --symlink-install --packages-select vaacum_gripper_description &&
+      source install/setup.bash &&
+      ros2 launch vaacum_gripper_description display.launch.py"
+
+  launch_ur_vacuum_gripper:
+    <<: *ur-overlay
+    volumes:
+      - $HOME/.Xauthority:/home/ros/.Xauthority:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev:/dev
+      - /usr/bin/docker:/usr/bin/docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./src/onshape_keys.sh:/home/ros/onshape_keys.sh:ro
+      - .:/home/ros/ros2_ws/src/crisp_ur_demo:rw
+    command: >
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
+      source install/setup.bash &&
+      colcon build --symlink-install --packages-select crisp_ur_mujoco vaacum_gripper_description &&
+      source install/setup.bash &&
+      ros2 launch crisp_ur_mujoco ur_vacuum_gripper.launch.py
+      ur_type:=ur30 use_rviz:=True show_gui:=True use_pose_broadcaster:=False"
+
+  launch_dual_ur_vacuum_gripper:
+    <<: *ur-overlay
+    volumes:
+      - $HOME/.Xauthority:/home/ros/.Xauthority:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - /dev:/dev
+      - /usr/bin/docker:/usr/bin/docker
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./src/onshape_keys.sh:/home/ros/onshape_keys.sh:ro
+      - .:/home/ros/ros2_ws/src/crisp_ur_demo:rw
+    command: >
+      bash -lc "source /opt/ros/jazzy/setup.bash &&
+      source install/setup.bash &&
+      colcon build --symlink-install --packages-select crisp_ur_mujoco vaacum_gripper_description &&
+      source install/setup.bash &&
+      ros2 launch crisp_ur_mujoco dual_ur_vacuum_gripper.launch.py
+      ur_type:=ur30 use_rviz:=True show_gui:=True"
